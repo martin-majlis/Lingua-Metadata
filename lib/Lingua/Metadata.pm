@@ -1,0 +1,108 @@
+use strict;
+use warnings;
+package Lingua::Metadata;
+
+use LWP::Simple;
+
+# ABSTRACT: Returns information about languages.
+
+use constant SERVICE_URL => 'http://w2c.martin.majlis.cz/language/';
+
+our %cache_iso = ();
+
+=head1 SYNOPSIS
+
+=method get_iso ($langage)
+
+Returns an ISO 639-3 code for language. 
+
+=head4 Returns $iso
+
+=over 4
+
+=item * It returns undef, if the service is down or undef is passed as an argument.
+
+=item * It returns empty string, if the language couldn't be converted.
+
+=item * It returns ISO 639-3 otherwise.
+
+=back
+
+=cut
+
+sub get_iso
+{
+    my $label = shift;
+    
+    if ( ! defined($label) ) {
+        return;
+    }
+    
+    if ( ! defined($cache_iso{$label}) ) {
+        my $url = SERVICE_URL . '?alias=' . $label;
+        $cache_iso{$label} = get($url);
+    }
+    
+    return $cache_iso{$label};    
+}
+
+=method get_language_metadata ($langage)
+
+Returns all metadata for specified language.
+
+=head4 Examples
+
+  my $ces_metadata = Lingua::Metadata::get_language_metadata("ces");
+  my $cs_metadata = Lingua::Metadata::get_language_metadata("cs");
+  my $czech_metadata = Lingua::Metadata::get_language_metadata("czech");
+  my $cestina_metadata = Lingua::Metadata::get_language_metadata("čeština");
+
+  
+  ( $ces_metadata{'iso 639-3'} eq $cs_metadata{'iso 639-3'} and
+    $cs_metadata{'iso 639-3'} eq $czech_metadata{'iso 639-3'} and
+    $czech_metadata{'iso 639-3'} eq $cestina_metadata{'iso 639-3'} and
+    $cestina_metadata{'iso 639-3'} eq 'ces' ) or die; 
+
+
+=head4 Returns \%metadata = { key1 => value1, ... }
+
+=over 4
+
+=item * It returns undef, if the service is down or undef is passed as an argument.
+
+=item * It returns reference to the hash containing all metadata.
+
+=back
+
+=cut
+
+sub get_language_metadata
+{
+    my $language = shift;
+    
+    my %result = ();    
+    my $iso = get_iso($language);
+    
+    if ( ! defined($iso) ) { 
+        return $iso;
+    } elsif ( $iso eq '' ) {
+        return \%result;
+    }
+    
+    my $url = SERVICE_URL . '?action=GET&format=TXT&lang=' . $iso;
+    my $content = get($url);
+    
+
+    if ( $content ) {
+        for my $line ( split(/\n/, $content) ) {
+            chomp $line;
+            my @parts = split(/\t/, $line);
+            $result{$parts[1]} = $parts[2]; 
+        }
+    }
+    
+    return \%result;    
+}
+
+
+1;
