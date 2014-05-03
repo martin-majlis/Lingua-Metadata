@@ -4,17 +4,72 @@ package Lingua::Metadata;
 
 use LWP::Simple;
 
+# VERSION
+
 # ABSTRACT: Returns information about languages.
 
 use constant SERVICE_URL => 'http://w2c.martin.majlis.cz/language/';
 
 our %cache_iso = ();
 
+
+sub get_iso
+{
+    my $label = shift;
+
+    if ( ! defined($label) ) {
+        return;
+    }
+
+    if ( ! defined($cache_iso{$label}) ) {
+        my $url = SERVICE_URL . '?alias=' . $label;
+        $cache_iso{$label} = get($url);
+    }
+
+    return $cache_iso{$label};
+}
+
+
+sub get_language_metadata
+{
+    my $language = shift;
+
+    my %result = ();
+    my $iso = get_iso($language);
+
+    if ( ! defined($iso) ) {
+        return $iso;
+    } elsif ( $iso eq '' ) {
+        return \%result;
+    }
+
+    my $url = SERVICE_URL . '?action=GET&format=TXT&lang=' . $iso;
+    my $content = get($url);
+
+    if ( $content ) {
+        for my $line ( split(/\n/, $content) ) {
+            chomp $line;
+            my @parts = split(/\t/, $line);
+            $result{$parts[1]} = $parts[2];
+        }
+    }
+
+    return \%result;
+}
+
+
+1;
+
+__END__
+=pod
+
 =head1 SYNOPSIS
 
-=method get_iso ($langage)
+=head1 METHODS
 
-Returns an ISO 639-3 code for language. 
+=head2 get_iso ($langage)
+
+Returns an ISO 639-3 code for language.
 
 =head4 Returns $iso
 
@@ -28,25 +83,7 @@ Returns an ISO 639-3 code for language.
 
 =back
 
-=cut
-
-sub get_iso
-{
-    my $label = shift;
-    
-    if ( ! defined($label) ) {
-        return;
-    }
-    
-    if ( ! defined($cache_iso{$label}) ) {
-        my $url = SERVICE_URL . '?alias=' . $label;
-        $cache_iso{$label} = get($url);
-    }
-    
-    return $cache_iso{$label};    
-}
-
-=method get_language_metadata ($langage)
+=head2 get_language_metadata ($langage)
 
 Returns all metadata for specified language.
 
@@ -57,12 +94,11 @@ Returns all metadata for specified language.
   my $czech_metadata = Lingua::Metadata::get_language_metadata("czech");
   my $cestina_metadata = Lingua::Metadata::get_language_metadata("čeština");
 
-  
+
   ( $ces_metadata{'iso 639-3'} eq $cs_metadata{'iso 639-3'} and
     $cs_metadata{'iso 639-3'} eq $czech_metadata{'iso 639-3'} and
     $czech_metadata{'iso 639-3'} eq $cestina_metadata{'iso 639-3'} and
-    $cestina_metadata{'iso 639-3'} eq 'ces' ) or die; 
-
+    $cestina_metadata{'iso 639-3'} eq 'ces' ) or die;
 
 =head4 Returns \%metadata = { key1 => value1, ... }
 
@@ -74,35 +110,17 @@ Returns all metadata for specified language.
 
 =back
 
+=head1 AUTHOR
+
+Martin Majlis <martin@majlis.cz>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is Copyright (c) 2012 by Martin Majlis.
+
+This is free software, licensed under:
+
+  The (three-clause) BSD License
+
 =cut
 
-sub get_language_metadata
-{
-    my $language = shift;
-    
-    my %result = ();    
-    my $iso = get_iso($language);
-    
-    if ( ! defined($iso) ) { 
-        return $iso;
-    } elsif ( $iso eq '' ) {
-        return \%result;
-    }
-    
-    my $url = SERVICE_URL . '?action=GET&format=TXT&lang=' . $iso;
-    my $content = get($url);
-    
-
-    if ( $content ) {
-        for my $line ( split(/\n/, $content) ) {
-            chomp $line;
-            my @parts = split(/\t/, $line);
-            $result{$parts[1]} = $parts[2]; 
-        }
-    }
-    
-    return \%result;    
-}
-
-
-1;
